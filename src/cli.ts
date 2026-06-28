@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { detectRoutes } from './router.js';
 import { extractContent } from './visitor.js';
+import { renderLlmsTxt, urlToTitle, type LlmsTxtEntry } from './llmstxt.js';
 
 const args = process.argv.slice(2);
 const projectRoot = process.cwd();
@@ -63,7 +64,7 @@ async function run() {
   );
 
   // Write .md files
-  const llmsTxtEntries: string[] = [];
+  const llmsTxtEntries: LlmsTxtEntry[] = [];
 
   for (const { route, content } of results) {
     const mdFilename = route.url === '/' ? 'index.md' : `${route.url.slice(1)}.md`;
@@ -73,22 +74,17 @@ async function run() {
     const md = renderMarkdown(content, route.url, flags.skipDynamic);
     await fs.writeFile(mdPath, md, 'utf-8');
 
-    const mdUrl = `/${mdFilename}`;
-    const desc = content.hasDynamicMetadata
-      ? 'dynamic — see generateMetadata()'
-      : (content.description ?? '');
-
-    const title = content.title ?? urlToTitle(route.url);
-    llmsTxtEntries.push(`- [${title}](${mdUrl})${desc ? ': ' + desc : ''}`);
+    llmsTxtEntries.push({
+      title: content.title ?? urlToTitle(route.url),
+      mdUrl: `/${mdFilename}`,
+      description: content.description,
+      hasDynamicMetadata: content.hasDynamicMetadata,
+    });
   }
 
   // Write llms.txt
-  const llmsTxt = [
-    `# ${path.basename(projectRoot)}`,
-    '',
-    ...llmsTxtEntries,
-  ].join('\n');
-  await fs.writeFile(path.join(outDir, 'llms.txt'), llmsTxt + '\n', 'utf-8');
+  const llmsTxt = renderLlmsTxt(path.basename(projectRoot), llmsTxtEntries);
+  await fs.writeFile(path.join(outDir, 'llms.txt'), llmsTxt, 'utf-8');
 
   console.log(
     `agentify: generated ${results.length} pages + llms.txt → ${path.relative(projectRoot, outDir)}/`
@@ -120,12 +116,6 @@ function renderMarkdown(
   }
 
   return lines.join('\n').trimEnd() + '\n';
-}
-
-function urlToTitle(url: string): string {
-  if (url === '/') return 'Home';
-  const last = url.split('/').filter(Boolean).pop() ?? 'Page';
-  return last.charAt(0).toUpperCase() + last.slice(1).replace(/-/g, ' ');
 }
 
 run().catch((err) => {

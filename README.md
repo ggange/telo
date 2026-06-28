@@ -1,0 +1,222 @@
+# agentify
+
+Generate AI-readable markdown from your Next.js source — no proxy, no runtime cost.
+
+```
+npx agentify
+```
+
+Produces a `page.md` file alongside every static route and an `llms.txt` index that AI agents can follow, all derived directly from your source code at build time.
+
+---
+
+## Why
+
+Modern websites are built for human eyes: rendered HTML, client-side hydration, CSS-driven layouts. AI agents parsing those pages discard most of the markup and often miss content entirely. Existing solutions (reverse proxies, middleware) add latency and require deployed infrastructure.
+
+**agentify** works offline from your source tree. Because it reads the React AST — not the rendered output — it works even for CSR apps that are invisible to crawlers, requires no runtime dependency, and can run in CI next to your linter.
+
+### How it differs from Cloudflare's approach
+
+| | agentify | Cloudflare AI Gateway / Workers |
+|---|---|---|
+| Input | React source (AST) | Live HTTP response |
+| When it runs | Build time / CI | Request time |
+| Runtime cost | Zero | Proxy latency per request |
+| Works for CSR/SPA | Yes | No (JS not executed) |
+| Requires deployment | No | Yes |
+
+---
+
+## Output
+
+For a Next.js project with this structure:
+
+```
+app/
+  page.tsx          ← export const metadata = { title: 'Home', description: '…' }
+  about/page.tsx
+  pricing/page.tsx
+```
+
+Running `npx agentify` writes:
+
+```
+public/
+  llms.txt          ← index following llmstxt.org spec
+  index.md          ← extracted content for /
+  about.md
+  pricing.md
+```
+
+**`llms.txt`** (root of your site):
+
+```
+# my-project
+
+- [Home](/index.md): The best place to start
+- [About](/about.md): Learn about our company
+- [Pricing](/pricing.md): dynamic — see generateMetadata()
+```
+
+**`about.md`** (one per page):
+
+```markdown
+# About Us
+
+Learn about our company
+
+Our mission is to build great software for everyone.
+
+- Feature one
+- Feature two
+```
+
+AI agents follow the two-hop pattern: fetch `/llms.txt` → follow links to per-page `.md` files. Both files use root-relative URLs so they work regardless of CDN path or deployment prefix.
+
+---
+
+## Installation
+
+```bash
+# Run once (no install needed)
+npx agentify
+
+# Or install globally
+npm install -g agentify
+
+# Or add to your project
+npm install --save-dev agentify
+```
+
+Requires Node.js ≥ 18.
+
+---
+
+## Usage
+
+```bash
+npx agentify [options]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--out <dir>` | `public` | Output directory |
+| `--skip-dynamic` | off | Omit `<!-- dynamic content -->` comments |
+| `--help` | | Show help |
+
+### In your build pipeline
+
+```json
+{
+  "scripts": {
+    "build": "next build && agentify"
+  }
+}
+```
+
+Or in CI alongside your existing steps — it reads source files, not build output, so order doesn't matter.
+
+---
+
+## Supported routers
+
+| Router | Status |
+|---|---|
+| Next.js App Router (`app/`) | Supported |
+| Next.js Pages Router (`pages/`) | Supported |
+| Remix | Planned |
+| Astro | Planned |
+
+agentify auto-detects which router your project uses. If both `app/` and `pages/` exist it prefers App Router.
+
+---
+
+## Dynamic content
+
+Pages are flagged as dynamic when agentify detects:
+
+1. **`async` default export** — the primary App Router signal (`async function Page()`)
+2. **Unknown `use*` hooks** — data-fetching hooks like `useSWR`, `useQuery` (safe hooks such as `useState`, `useEffect`, `useMemo` are not flagged)
+3. **`fetch()` calls** at module scope
+
+Dynamic pages get a comment in their `.md` file:
+
+```markdown
+<!-- dynamic content — available at runtime via /products -->
+```
+
+Pass `--skip-dynamic` to omit these comments entirely.
+
+### `generateMetadata()`
+
+When agentify finds `export async function generateMetadata()`, it cannot extract a static description. The `llms.txt` entry reads:
+
+```
+- [Products](/products.md): dynamic — see generateMetadata()
+```
+
+This signals to agents that a description exists at runtime, not that the page is empty.
+
+---
+
+## Dynamic routes
+
+Routes with path parameters (`[slug]`, `[id]`, `[...catchAll]`) are skipped — agentify cannot enumerate the parameter values statically. A warning is printed to stderr for each skipped file:
+
+```
+agentify: skipped dynamic route: app/blog/[slug]/page.tsx
+```
+
+Parallel routes (`@slot`) and API routes (`pages/api/`) are also skipped.
+
+---
+
+## robots.txt consideration
+
+The generated `.md` files live in `public/` and are URL-accessible by default. If you want to keep them available to AI agents but hidden from traditional search crawlers, add entries to your `public/robots.txt`:
+
+```
+User-agent: Googlebot
+Disallow: /*.md$
+
+User-agent: *
+Allow: /llms.txt
+Allow: /*.md$
+```
+
+Alternatively, use a different `--out` directory and configure your server to serve it under a path that traditional crawlers ignore.
+
+---
+
+## Content extraction
+
+agentify extracts text from JSX using a set of heuristics:
+
+- **Heading elements** (`h1`–`h6`) → markdown headings
+- **List items** (`li`) → markdown list items
+- **Paragraphs and other elements** → plain text
+- **String props** on elements with semantic names (`title`, `description`, `label`, `heading`, `caption`, `summary`, `body`, `content`, `text`) → text blocks
+- **Navigation chrome** (`nav`, `header`, `footer`, `aside`) → skipped entirely
+
+`export const metadata = { title, description }` (App Router) is extracted and used as the page title and description in both the `.md` file and the `llms.txt` entry.
+
+---
+
+## Contributing
+
+```bash
+git clone https://github.com/your-org/agentify
+cd agentify
+npm install
+npm test       # 34 tests, ~500ms
+npm run build  # outputs dist/cli.js
+```
+
+agentify is built with `@babel/parser` + `@babel/traverse` for AST analysis and `tsup` for bundling. The CLI produces a single self-contained `dist/cli.js` with a Node shebang, suitable for `npx`.
+
+---
+
+## License
+
+MIT

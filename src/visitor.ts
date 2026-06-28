@@ -3,6 +3,7 @@ import * as path from 'path';
 import { parse } from '@babel/parser';
 import traverse from '@babel/traverse';
 import * as t from '@babel/types';
+import { extractMetadata } from './metadata.js';
 
 export interface ExtractedContent {
   /** true if the page/component fetches data dynamically */
@@ -13,7 +14,7 @@ export interface ExtractedContent {
   title: string | null;
   /** page description from export const metadata */
   description: string | null;
-  /** true if generateMetadata() was detected (description unavailable statically) */
+  /** generateMetadata() was detected — description unavailable statically */
   hasDynamicMetadata: boolean;
 }
 
@@ -69,7 +70,6 @@ export async function extractContent(filePath: string): Promise<ExtractedContent
     hasDynamicMetadata: false,
   };
 
-  // Track nav-chrome nesting depth so we skip content inside nav/header/footer/aside
   let navDepth = 0;
 
   traverse(ast, {
@@ -100,10 +100,6 @@ export async function extractContent(filePath: string): Promise<ExtractedContent
           }
         }
       }
-      // generateMetadata() detection
-      if (t.isFunctionDeclaration(decl) && decl.id?.name === 'generateMetadata') {
-        result.hasDynamicMetadata = true;
-      }
     },
 
     // 3. Unknown use* hook calls
@@ -121,52 +117,40 @@ export async function extractContent(filePath: string): Promise<ExtractedContent
       }
     },
 
-    // ── Metadata extraction ──────────────────────────────────────
-
-    // export const metadata = { title, description }
-    VariableDeclarator(nodePath) {
-      if (!t.isIdentifier(nodePath.node.id, { name: 'metadata' })) return;
-      const init = nodePath.node.init;
-      if (!t.isObjectExpression(init)) return;
-
-      for (const prop of init.properties) {
-        if (!t.isObjectProperty(prop)) continue;
-        const key = t.isIdentifier(prop.key) ? prop.key.name : null;
-        const val = t.isStringLiteral(prop.value) ? prop.value.value : null;
-        if (!val) continue;
-        if (key === 'title') result.title = val;
-        if (key === 'description') result.description = val;
-      }
-    },
-
     // ── JSX content extraction ───────────────────────────────────
 
-    JSXOpeningElement: {
+    // Track nav-chrome nesting at JSXElement level so navDepth is still > 0
+    // when JSXText children are visited. JSXOpeningElement.exit fires before
+    // children are traversed, so it can't be used for this counter.
+    JSXElement: {
       enter(nodePath) {
-        const name = getElementName(nodePath.node.name);
+        const name = getElementName(nodePath.node.openingElement.name);
         if (NAV_ELEMENTS.has(name)) navDepth++;
-
-        // Extract string prop values matching content heuristic
-        if (navDepth > 0) return;
-        for (const attr of nodePath.node.attributes) {
-          if (!t.isJSXAttribute(attr)) continue;
-          const attrName = t.isJSXIdentifier(attr.name) ? attr.name.name : null;
-          if (!attrName || !CONTENT_PROPS.has(attrName)) continue;
-          const val = attr.value;
-          if (t.isStringLiteral(val) && val.value.trim()) {
-            const level = HEADING_ELEMENTS[name];
-            result.blocks.push({
-              type: level ? 'heading' : 'text',
-              level,
-              text: val.value.trim(),
-            });
-          }
-        }
       },
       exit(nodePath) {
-        const name = getElementName(nodePath.node.name);
+        const name = getElementName(nodePath.node.openingElement.name);
         if (NAV_ELEMENTS.has(name)) navDepth--;
       },
+    },
+
+    // Extract content-prop string literals (e.g. title="…") from JSX attributes
+    JSXOpeningElement(nodePath) {
+      if (navDepth > 0) return;
+      const name = getElementName(nodePath.node.name);
+      for (const attr of nodePath.node.attributes) {
+        if (!t.isJSXAttribute(attr)) continue;
+        const attrName = t.isJSXIdentifier(attr.name) ? attr.name.name : null;
+        if (!attrName || !CONTENT_PROPS.has(attrName)) continue;
+        const val = attr.value;
+        if (t.isStringLiteral(val) && val.value.trim()) {
+          const level = HEADING_ELEMENTS[name];
+          result.blocks.push({
+            type: level ? 'heading' : 'text',
+            level,
+            text: val.value.trim(),
+          });
+        }
+      }
     },
 
     JSXText(nodePath) {
@@ -174,8 +158,8 @@ export async function extractContent(filePath: string): Promise<ExtractedContent
       const text = nodePath.node.value.trim();
       if (!text) return;
 
-      // Walk up to find the parent JSX element name for semantic mapping
-      const parentEl = nodePath.parentPath?.parentPath;
+      // parentPath is the containing JSXElement (e.g. <h1>, <li>, <p>)
+      const parentEl = nodePath.parentPath;
       if (!t.isJSXElement(parentEl?.node)) {
         result.blocks.push({ type: 'text', text });
         return;
@@ -192,6 +176,11 @@ export async function extractContent(filePath: string): Promise<ExtractedContent
       }
     },
   });
+
+  const meta = extractMetadata(ast);
+  result.title = meta.title;
+  result.description = meta.description;
+  result.hasDynamicMetadata = meta.hasDynamicMetadata;
 
   return result;
 }
