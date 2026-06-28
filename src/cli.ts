@@ -1,26 +1,32 @@
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { fileURLToPath } from 'url';
 import { detectRoutes } from './router.js';
 import { extractContent } from './visitor.js';
 import { renderLlmsTxt, urlToTitle, type LlmsTxtEntry } from './llmstxt.js';
+import { scanForAnnotations, renderAnnotationGuide } from './annotation-guide.js';
 
-const args = process.argv.slice(2);
-const projectRoot = process.cwd();
-
-const flags = {
-  out: 'public',
-  skipDynamic: false,
-  help: false,
-};
-
-for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--out' && args[i + 1]) flags.out = args[++i];
-  else if (args[i] === '--skip-dynamic') flags.skipDynamic = true;
-  else if (args[i] === '--help' || args[i] === '-h') flags.help = true;
+export interface CliFlags {
+  out: string;
+  skipDynamic: boolean;
+  help: boolean;
 }
 
-if (flags.help) {
-  console.log(`
+export function parseArgs(argv: string[]): CliFlags {
+  const flags: CliFlags = { out: 'public', skipDynamic: false, help: false };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--out' && argv[i + 1]) flags.out = argv[++i];
+    else if (argv[i] === '--skip-dynamic') flags.skipDynamic = true;
+    else if (argv[i] === '--help' || argv[i] === '-h') flags.help = true;
+  }
+  return flags;
+}
+
+export async function run(projectRoot: string, argv: string[]): Promise<void> {
+  const flags = parseArgs(argv);
+
+  if (flags.help) {
+    console.log(`
 agentify — generate AI-readable markdown from your Next.js source
 
 Usage: npx agentify [options]
@@ -30,15 +36,13 @@ Options:
   --skip-dynamic    Omit dynamic content placeholders
   --help            Show this help
 `);
-  process.exit(0);
-}
+    return;
+  }
 
-async function run() {
   const { routes, skipped, router } = await detectRoutes(projectRoot);
 
   if (router === 'none') {
-    console.error('agentify: no Next.js project found (missing app/ or pages/ directory)');
-    process.exit(1);
+    throw new Error('no Next.js project found (missing app/ or pages/ directory)');
   }
 
   if (skipped.length > 0) {
@@ -48,8 +52,7 @@ async function run() {
   }
 
   if (routes.length === 0) {
-    console.error('agentify: no static routes found — nothing to generate');
-    process.exit(1);
+    throw new Error('no static routes found — nothing to generate');
   }
 
   const outDir = path.resolve(projectRoot, flags.out);
@@ -89,6 +92,12 @@ async function run() {
   console.log(
     `agentify: generated ${results.length} pages + llms.txt → ${path.relative(projectRoot, outDir)}/`
   );
+
+  // Write ai-annotation-guide.md
+  const annotations = await scanForAnnotations(projectRoot);
+  const guide = renderAnnotationGuide(annotations);
+  await fs.writeFile(path.join(projectRoot, 'ai-annotation-guide.md'), guide, 'utf-8');
+  console.log('agentify: annotation guide → ai-annotation-guide.md');
 }
 
 function renderMarkdown(
@@ -118,7 +127,10 @@ function renderMarkdown(
   return lines.join('\n').trimEnd() + '\n';
 }
 
-run().catch((err) => {
-  console.error('agentify:', err.message);
-  process.exit(1);
-});
+// Auto-execute only when run as the main script
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  run(process.cwd(), process.argv.slice(2)).catch((err) => {
+    console.error('agentify:', err.message);
+    process.exit(1);
+  });
+}
