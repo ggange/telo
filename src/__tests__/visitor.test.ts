@@ -166,3 +166,41 @@ describe('extractContent — error handling', () => {
     );
   });
 });
+
+describe('extractContent — skipComponents', () => {
+  test('skips children of named component', async () => {
+    await withTempFile(
+      `export default function Page() {
+        return <main><NavBar><a>Menu</a></NavBar><h1>Title</h1></main>;
+      }`,
+      async (f) => {
+        const c = await extractContent(f, new Set(['NavBar']));
+        expect(c.blocks.some(b => b.text === 'Menu')).toBe(false);
+        expect(c.blocks.some(b => b.text === 'Title')).toBe(true);
+      }
+    );
+  });
+
+  test('content outside skipped component is preserved', async () => {
+    await withTempFile(
+      `export default function Page() {
+        return <main><Sidebar><p>Nav stuff</p></Sidebar><p>Main content here</p></main>;
+      }`,
+      async (f) => {
+        const c = await extractContent(f, new Set(['Sidebar']));
+        expect(c.blocks.some(b => b.text === 'Nav stuff')).toBe(false);
+        expect(c.blocks.some(b => b.text === 'Main content here')).toBe(true);
+      }
+    );
+  });
+
+  test('undefined skipComponents leaves behavior unchanged', async () => {
+    await withTempFile(
+      `export default function Page() { return <main><h1>Hello</h1></main>; }`,
+      async (f) => {
+        const c = await extractContent(f, undefined);
+        expect(c.blocks.find(b => b.type === 'heading' && b.level === 1)?.text).toBe('Hello');
+      }
+    );
+  });
+});

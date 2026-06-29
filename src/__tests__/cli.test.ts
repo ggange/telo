@@ -38,6 +38,14 @@ describe('parseArgs', () => {
     expect(parseArgs(['--help']).help).toBe(true);
     expect(parseArgs(['-h']).help).toBe(true);
   });
+
+  test('--skip-components parses comma-separated names', () => {
+    expect(parseArgs(['--skip-components', 'NavBar,Header']).skipComponents).toEqual(['NavBar', 'Header']);
+  });
+
+  test('--skip-components defaults to empty array', () => {
+    expect(parseArgs([]).skipComponents).toEqual([]);
+  });
 });
 
 describe('run() — App Router', () => {
@@ -111,6 +119,24 @@ describe('run() — App Router', () => {
       await run(root, ['--out', 'out']);
       const md = await fs.readFile(path.join(root, 'out', 'index.md'), 'utf-8');
       expect(md).toContain('<!-- dynamic content');
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('--skip-components omits content inside named elements', async () => {
+    const root = await mkFixture({
+      'app/page.tsx': `
+        export default function Page() {
+          return <main><NavBar><a>Nav link</a></NavBar><h1>Real content</h1></main>;
+        }
+      `,
+    });
+    try {
+      await run(root, ['--out', 'out', '--skip-components', 'NavBar']);
+      const md = await fs.readFile(path.join(root, 'out', 'index.md'), 'utf-8');
+      expect(md).not.toContain('Nav link');
+      expect(md).toContain('Real content');
     } finally {
       await cleanUp(root);
     }

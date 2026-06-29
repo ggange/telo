@@ -46,7 +46,7 @@ const CONTENT_PROPS = new Set([
   'text', 'label', 'heading', 'caption', 'summary',
 ]);
 
-export async function extractContent(filePath: string): Promise<ExtractedContent> {
+export async function extractContent(filePath: string, skipComponents?: Set<string>): Promise<ExtractedContent> {
   const src = await fs.readFile(filePath, 'utf-8');
 
   let ast: ReturnType<typeof parse>;
@@ -69,7 +69,9 @@ export async function extractContent(filePath: string): Promise<ExtractedContent
     hasDynamicMetadata: false,
   };
 
+  const skipSet = skipComponents ?? new Set<string>();
   let navDepth = 0;
+  let skipDepth = 0;
 
   traverse(ast, {
     // ── Dynamic detection ────────────────────────────────────────
@@ -143,23 +145,26 @@ export async function extractContent(filePath: string): Promise<ExtractedContent
 
     // ── JSX content extraction ───────────────────────────────────
 
-    // Track nav-chrome nesting at JSXElement level so navDepth is still > 0
-    // when JSXText children are visited. JSXOpeningElement.exit fires before
-    // children are traversed, so it can't be used for this counter.
+    // Track nav-chrome and skip-component nesting at JSXElement level so depth
+    // counters are still > 0 when JSXText children are visited. Skipped
+    // components are checked first to prevent navDepth corruption if an element
+    // is in both sets.
     JSXElement: {
       enter(nodePath) {
         const name = getElementName(nodePath.node.openingElement.name);
+        if (skipSet.has(name)) { skipDepth++; return; }
         if (NAV_ELEMENTS.has(name)) navDepth++;
       },
       exit(nodePath) {
         const name = getElementName(nodePath.node.openingElement.name);
+        if (skipSet.has(name)) { skipDepth--; return; }
         if (NAV_ELEMENTS.has(name)) navDepth--;
       },
     },
 
     // Extract content-prop string literals (e.g. title="…") from JSX attributes
     JSXOpeningElement(nodePath) {
-      if (navDepth > 0) return;
+      if (navDepth > 0 || skipDepth > 0) return;
       const name = getElementName(nodePath.node.name);
       for (const attr of nodePath.node.attributes) {
         if (!t.isJSXAttribute(attr)) continue;
@@ -178,7 +183,7 @@ export async function extractContent(filePath: string): Promise<ExtractedContent
     },
 
     JSXText(nodePath) {
-      if (navDepth > 0) return;
+      if (navDepth > 0 || skipDepth > 0) return;
       const text = nodePath.node.value.trim();
       if (!text) return;
 

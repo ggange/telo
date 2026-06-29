@@ -33,6 +33,12 @@
     "node": ">=18"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ggange/agentify.git"
+  },
+  "homepage": "https://github.com/ggange/agentify#readme",
+  "bugs": "https://github.com/ggange/agentify/issues",
   "keywords": [
     "llm",
     "ai",

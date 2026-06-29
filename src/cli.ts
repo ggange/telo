@@ -9,14 +9,18 @@ import { scanForAnnotations, renderAnnotationGuide } from './annotation-guide.js
 export interface CliFlags {
   out: string;
   skipDynamic: boolean;
+  skipComponents: string[];
   help: boolean;
 }
 
 export function parseArgs(argv: string[]): CliFlags {
-  const flags: CliFlags = { out: 'public', skipDynamic: false, help: false };
+  const flags: CliFlags = { out: 'public', skipDynamic: false, skipComponents: [], help: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--out' && argv[i + 1]) flags.out = argv[++i];
     else if (argv[i] === '--skip-dynamic') flags.skipDynamic = true;
+    else if (argv[i] === '--skip-components' && argv[i + 1]) {
+      flags.skipComponents = argv[++i].split(',').map(s => s.trim()).filter(Boolean);
+    }
     else if (argv[i] === '--help' || argv[i] === '-h') flags.help = true;
   }
   return flags;
@@ -32,9 +36,10 @@ agentify — generate AI-readable markdown from your Next.js source
 Usage: npx agentify [options]
 
 Options:
-  --out <dir>       Output directory (default: public)
-  --skip-dynamic    Omit dynamic content placeholders
-  --help            Show this help
+  --out <dir>              Output directory (default: public)
+  --skip-dynamic           Omit dynamic content placeholders
+  --skip-components <list> Comma-separated JSX element names to exclude (e.g. NavBar,Sidebar)
+  --help                   Show this help
 `);
     return;
   }
@@ -58,10 +63,12 @@ Options:
   const outDir = path.resolve(projectRoot, flags.out);
   await fs.mkdir(outDir, { recursive: true });
 
+  const skipSet = new Set(flags.skipComponents);
+
   // Process all routes in parallel
   const results = await Promise.all(
     routes.map(async (route) => {
-      const content = await extractContent(route.filePath);
+      const content = await extractContent(route.filePath, skipSet.size > 0 ? skipSet : undefined);
       return { route, content };
     })
   );

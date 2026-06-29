@@ -44,77 +44,73 @@ export async function scanForAnnotations(projectRoot: string): Promise<FileAnnot
     ],
   });
 
-  const results: FileAnnotations[] = [];
+  const fileResults = await Promise.all(
+    files.map(async (filePath): Promise<FileAnnotations | null> => {
+      let src: string;
+      try {
+        src = await fs.readFile(filePath, 'utf-8');
+      } catch {
+        return null;
+      }
 
-  for (const filePath of files) {
-    let src: string;
-    try {
-      src = await fs.readFile(filePath, 'utf-8');
-    } catch {
-      continue;
-    }
-
-    let ast: ReturnType<typeof parse>;
-    try {
-      ast = parse(src, {
-        sourceType: 'module',
-        plugins: ['typescript', 'jsx', 'decorators-legacy'],
-        errorRecovery: true,
-      });
-    } catch {
-      continue;
-    }
-
-    const hints: AnnotationHint[] = [];
-
-    traverse(ast, {
-      JSXOpeningElement(nodePath) {
-        const elementName = getElementName(nodePath.node.name);
-        for (const attr of nodePath.node.attributes) {
-          if (!t.isJSXAttribute(attr)) continue;
-          const propName = t.isJSXIdentifier(attr.name) ? attr.name.name : null;
-          if (!propName || !CONTENT_PROPS.has(propName)) continue;
-          if (!t.isStringLiteral(attr.value) || !attr.value.value.trim()) continue;
-          hints.push({
-            type: 'prop',
-            elementName,
-            propName,
-            line: attr.loc?.start.line ?? 0,
-          });
-        }
-      },
-
-      JSXText(nodePath) {
-        const text = nodePath.node.value.trim();
-        if (text.length <= 20) return;
-        const parentEl = nodePath.parentPath;
-        if (!t.isJSXElement(parentEl?.node)) return;
-        const parentElement = getElementName((parentEl.node as t.JSXElement).openingElement.name);
-        hints.push({
-          type: 'literal',
-          parentElement,
-          preview: text.slice(0, 60),
-          line: nodePath.node.loc?.start.line ?? 0,
+      let ast: ReturnType<typeof parse>;
+      try {
+        ast = parse(src, {
+          sourceType: 'module',
+          plugins: ['typescript', 'jsx', 'decorators-legacy'],
+          errorRecovery: true,
         });
-      },
-    });
+      } catch {
+        return null;
+      }
 
-    if (hints.length > 0) {
-      results.push({
-        filePath: path.relative(projectRoot, filePath),
-        hints,
+      const hints: AnnotationHint[] = [];
+
+      traverse(ast, {
+        JSXOpeningElement(nodePath) {
+          const elementName = getElementName(nodePath.node.name);
+          for (const attr of nodePath.node.attributes) {
+            if (!t.isJSXAttribute(attr)) continue;
+            const propName = t.isJSXIdentifier(attr.name) ? attr.name.name : null;
+            if (!propName || !CONTENT_PROPS.has(propName)) continue;
+            if (!t.isStringLiteral(attr.value) || !attr.value.value.trim()) continue;
+            hints.push({
+              type: 'prop',
+              elementName,
+              propName,
+              line: attr.loc?.start.line ?? 0,
+            });
+          }
+        },
+
+        JSXText(nodePath) {
+          const text = nodePath.node.value.trim();
+          if (text.length <= 20) return;
+          const parentEl = nodePath.parentPath;
+          if (!t.isJSXElement(parentEl?.node)) return;
+          const parentElement = getElementName((parentEl.node as t.JSXElement).openingElement.name);
+          hints.push({
+            type: 'literal',
+            parentElement,
+            preview: text.slice(0, 60),
+            line: nodePath.node.loc?.start.line ?? 0,
+          });
+        },
       });
-    }
-  }
 
-  return results;
+      if (hints.length === 0) return null;
+      return { filePath: path.relative(projectRoot, filePath), hints };
+    })
+  );
+
+  return fileResults.filter((r): r is FileAnnotations => r !== null);
 }
 
 export function renderAnnotationGuide(files: FileAnnotations[]): string {
   const lines: string[] = [
     '# AI Content Annotation Guide',
     '',
-    '> Run with your AI coding assistant: "Follow this guide and add `<AIContent>` from `@pkg/react` to each component listed."',
+    '> Run with your AI coding assistant: "Follow this guide and add `<AIContent>` from `@pkg/react` (coming soon) to each component listed."',
     '',
   ];
 
