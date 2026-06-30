@@ -6,7 +6,7 @@ import { scanForAnnotations, renderAnnotationGuide } from '../annotation-guide.j
 import type { FileAnnotations } from '../annotation-guide.js';
 
 async function mkFixture(structure: Record<string, string>): Promise<string> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'agentify-ann-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'llmsify-ann-'));
   for (const [rel, content] of Object.entries(structure)) {
     const full = path.join(root, rel);
     await fs.mkdir(path.dirname(full), { recursive: true });
@@ -131,11 +131,11 @@ describe('scanForAnnotations', () => {
     }
   });
 
-  test('.agentifyignore excludes matching files (glob pattern)', async () => {
+  test('.llmsifyignore excludes matching files (glob pattern)', async () => {
     const root = await mkFixture({
       'src/Hero.tsx': `export function Hero() { return <HeroSection title="Keep me" />; }`,
       'src/ignored/Nav.tsx': `export function Nav() { return <NavSection title="Exclude me" />; }`,
-      '.agentifyignore': 'src/ignored/**',
+      '.llmsifyignore': 'src/ignored/**',
     });
     try {
       const files = await scanForAnnotations(root);
@@ -147,10 +147,10 @@ describe('scanForAnnotations', () => {
     }
   });
 
-  test('.agentifyignore strips comments and blank lines', async () => {
+  test('.llmsifyignore strips comments and blank lines', async () => {
     const root = await mkFixture({
       'src/Hero.tsx': `export function Hero() { return <HeroSection title="Keep me" />; }`,
-      '.agentifyignore': '# this is a comment\n\n# another comment\n',
+      '.llmsifyignore': '# this is a comment\n\n# another comment\n',
     });
     try {
       const files = await scanForAnnotations(root);
@@ -160,11 +160,11 @@ describe('scanForAnnotations', () => {
     }
   });
 
-  test('.agentifyignore bare directory path is normalized to glob', async () => {
+  test('.llmsifyignore bare directory path is normalized to glob', async () => {
     const root = await mkFixture({
       'src/Hero.tsx': `export function Hero() { return <HeroSection title="Keep me" />; }`,
       'src/ignored/Nav.tsx': `export function Nav() { return <NavSection title="Exclude me" />; }`,
-      '.agentifyignore': 'src/ignored',
+      '.llmsifyignore': 'src/ignored',
     });
     try {
       const files = await scanForAnnotations(root);
@@ -176,11 +176,11 @@ describe('scanForAnnotations', () => {
     }
   });
 
-  test('.agentifyignore trailing-slash directory is normalized to glob', async () => {
+  test('.llmsifyignore trailing-slash directory is normalized to glob', async () => {
     const root = await mkFixture({
       'src/Hero.tsx': `export function Hero() { return <HeroSection title="Keep me" />; }`,
       'src/ignored/Nav.tsx': `export function Nav() { return <NavSection title="Exclude me" />; }`,
-      '.agentifyignore': 'src/ignored/',
+      '.llmsifyignore': 'src/ignored/',
     });
     try {
       const files = await scanForAnnotations(root);
@@ -190,7 +190,7 @@ describe('scanForAnnotations', () => {
     }
   });
 
-  test('missing .agentifyignore does not affect scan', async () => {
+  test('missing .llmsifyignore does not affect scan', async () => {
     const root = await mkFixture({
       'src/Hero.tsx': `export function Hero() { return <HeroSection title="Welcome" />; }`,
     });

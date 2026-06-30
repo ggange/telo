@@ -1,9 +1,9 @@
-# agentify
+# llmsify
 
 Generate AI-readable markdown from your Next.js source — no proxy, no runtime cost.
 
 ```
-npx agentify-cli
+npx llmsify
 ```
 
 Produces a `page.md` file alongside every static route and an `llms.txt` index that AI agents can follow, all derived directly from your source code at build time.
@@ -14,11 +14,11 @@ Produces a `page.md` file alongside every static route and an `llms.txt` index t
 
 Modern websites are built for human eyes: rendered HTML, client-side hydration, CSS-driven layouts. AI agents parsing those pages discard most of the markup and often miss content entirely. Existing solutions (reverse proxies, middleware) add latency and require deployed infrastructure.
 
-**agentify** works offline from your source tree. Because it reads the React AST — not the rendered output — it works even for CSR apps that are invisible to crawlers, requires no runtime dependency, and can run in CI next to your linter.
+**llmsify** works offline from your source tree. Because it reads the React AST — not the rendered output — it works even for CSR apps that are invisible to crawlers, requires no runtime dependency, and can run in CI next to your linter.
 
 ### How it differs from Cloudflare's approach
 
-| | agentify | Cloudflare AI Gateway / Workers |
+| | llmsify | Cloudflare AI Gateway / Workers |
 |---|---|---|
 | Input | React source (AST) | Live HTTP response |
 | When it runs | Build time / CI | Request time |
@@ -39,7 +39,7 @@ app/
   pricing/page.tsx
 ```
 
-Running `npx agentify` writes:
+Running `npx llmsify` writes:
 
 ```
 public/
@@ -80,13 +80,13 @@ AI agents follow the two-hop pattern: fetch `/llms.txt` → follow links to per-
 
 ```bash
 # Run once (no install needed)
-npx agentify-cli
+npx llmsify
 
 # Or install globally
-npm install -g agentify-cli
+npm install -g llmsify
 
 # Or add to your project
-npm install --save-dev agentify-cli
+npm install --save-dev llmsify
 ```
 
 Requires Node.js ≥ 18.
@@ -96,7 +96,7 @@ Requires Node.js ≥ 18.
 ## Usage
 
 ```bash
-npx agentify-cli [options]
+npx llmsify [options]
 ```
 
 | Option | Default | Description |
@@ -111,7 +111,7 @@ npx agentify-cli [options]
 ```json
 {
   "scripts": {
-    "build": "next build && agentify-cli"
+    "build": "next build && llmsify"
   }
 }
 ```
@@ -129,13 +129,13 @@ Or in CI alongside your existing steps — it reads source files, not build outp
 | Remix | Planned |
 | Astro | Planned |
 
-agentify auto-detects which router your project uses. If both `app/` and `pages/` exist it prefers App Router.
+llmsify auto-detects which router your project uses. If both `app/` and `pages/` exist it prefers App Router.
 
 ---
 
 ## Dynamic content
 
-Pages are flagged as dynamic when agentify detects:
+Pages are flagged as dynamic when llmsify detects:
 
 1. **`async` default export** — the primary App Router signal (`async function Page()`)
 2. **Unknown `use*` hooks** — data-fetching hooks like `useSWR`, `useQuery` (safe hooks such as `useState`, `useEffect`, `useMemo` are not flagged)
@@ -151,7 +151,7 @@ Pass `--skip-dynamic` to omit these comments entirely.
 
 ### `generateMetadata()`
 
-When agentify finds `export async function generateMetadata()`, it cannot extract a static description. The `llms.txt` entry reads:
+When llmsify finds `export async function generateMetadata()`, it cannot extract a static description. The `llms.txt` entry reads:
 
 ```
 - [Products](/products.md): dynamic — see generateMetadata()
@@ -163,10 +163,10 @@ This signals to agents that a description exists at runtime, not that the page i
 
 ## Dynamic routes
 
-Routes with path parameters (`[slug]`, `[id]`, `[...catchAll]`) are skipped — agentify cannot enumerate the parameter values statically. A warning is printed to stderr for each skipped file:
+Routes with path parameters (`[slug]`, `[id]`, `[...catchAll]`) are skipped — llmsify cannot enumerate the parameter values statically. A warning is printed to stderr for each skipped file:
 
 ```
-agentify: skipped dynamic route: app/blog/[slug]/page.tsx
+llmsify: skipped dynamic route: app/blog/[slug]/page.tsx
 ```
 
 Parallel routes (`@slot`) and API routes (`pages/api/`) are also skipped.
@@ -192,7 +192,7 @@ Alternatively, use a different `--out` directory and configure your server to se
 
 ## Content extraction
 
-agentify extracts text from JSX using a set of heuristics:
+llmsify extracts text from JSX using a set of heuristics:
 
 - **Heading elements** (`h1`–`h6`) → markdown headings
 - **List items** (`li`) → markdown list items
@@ -209,21 +209,21 @@ agentify extracts text from JSX using a set of heuristics:
 Every run writes `ai-annotation-guide.md` to your project root. It scans all
 source files (not just route files) for components and string props that would
 benefit from `<AIContent>` wrapping, so their content can be extracted by
-agentify in future runs.
+llmsify in future runs.
 
 The file is designed to be handed to an AI coding assistant. Open it for the
 exact install command and prompt to use once `@pkg/react` is published.
 
 > **Note:** `ai-annotation-guide.md` is regenerated on every run — edits are
-> ephemeral. Use `.agentifyignore` to permanently exclude files.
+> ephemeral. Use `.llmsifyignore` to permanently exclude files.
 
-### `.agentifyignore`
+### `.llmsifyignore`
 
-Create `.agentifyignore` in your project root to exclude files from the
+Create `.llmsifyignore` in your project root to exclude files from the
 annotation scan. One glob pattern per line, `#` for comments:
 
 ```
-# .agentifyignore
+# .llmsifyignore
 components/ui/primitives/**
 components/icons/**
 lib/utils
@@ -232,27 +232,27 @@ lib/utils
 Bare paths without glob characters (`lib/utils`, `components/icons/`) are
 automatically expanded to `lib/utils/**` and `components/icons/**`.
 The scan always excludes `node_modules`, `.next`, `dist`, and test files
-regardless of `.agentifyignore`.
+regardless of `.llmsifyignore`.
 
 ---
 
 ## Known limitations
 
-**Content inside custom components is not extracted.** agentify reads each route file directly — it does not follow import chains into the components the page renders. A page like this produces an empty `.md` file:
+**Content inside custom components is not extracted.** llmsify reads each route file directly — it does not follow import chains into the components the page renders. A page like this produces an empty `.md` file:
 
 ```tsx
-// app/page.tsx — agentify sees <Pricing /> but can't read inside Pricing.tsx
+// app/page.tsx — llmsify sees <Pricing /> but can't read inside Pricing.tsx
 export default async function Page() {
   const products = await getProducts();
   return <Pricing products={products} />;
 }
 ```
 
-**The fix:** run `npx agentify` once to generate `ai-annotation-guide.md`, then follow its instructions to wrap key content inside your components with `<AIContent>` from `@pkg/react` (coming soon). Once annotated, agentify will pick up that content on the next run.
+**The fix:** run `npx llmsify` once to generate `ai-annotation-guide.md`, then follow its instructions to wrap key content inside your components with `<AIContent>` from `@pkg/react` (coming soon). Once annotated, llmsify will pick up that content on the next run.
 
 **Pages that only call `redirect()` produce empty output.** This is expected — there is no content to extract.
 
-**Stale `llms.txt`.** The generated files are a snapshot of your source at the time you run agentify. If you update your pages, re-run agentify (or automate it in CI) to keep them fresh.
+**Stale `llms.txt`.** The generated files are a snapshot of your source at the time you run llmsify. If you update your pages, re-run llmsify (or automate it in CI) to keep them fresh.
 
 ---
 
@@ -264,12 +264,9 @@ cd agentify
 npm install
 npm test       # 70 tests, ~500ms
 npm run build  # outputs dist/cli.js
-
-# The installed command is 'agentify' (binary name), invoked via:
-npx agentify-cli
 ```
 
-agentify is built with `@babel/parser` + `@babel/traverse` for AST analysis and `tsup` for bundling. The CLI produces a single self-contained `dist/cli.js` with a Node shebang, suitable for `npx`.
+llmsify is built with `@babel/parser` + `@babel/traverse` for AST analysis and `tsup` for bundling. The CLI produces a single self-contained `dist/cli.js` with a Node shebang, suitable for `npx`.
 
 ---
 
