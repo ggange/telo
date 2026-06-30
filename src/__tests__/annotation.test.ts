@@ -130,6 +130,47 @@ describe('scanForAnnotations', () => {
       await cleanUp(root);
     }
   });
+
+  test('.agentifyignore excludes matching files', async () => {
+    const root = await mkFixture({
+      'src/Hero.tsx': `export function Hero() { return <HeroSection title="Keep me" />; }`,
+      'src/ignored/Nav.tsx': `export function Nav() { return <NavSection title="Exclude me" />; }`,
+      '.agentifyignore': 'src/ignored/**',
+    });
+    try {
+      const files = await scanForAnnotations(root);
+      const paths = files.map(f => f.filePath);
+      expect(paths.some(p => p.includes('ignored'))).toBe(false);
+      expect(paths.some(p => p.includes('Hero'))).toBe(true);
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('.agentifyignore strips comments and blank lines', async () => {
+    const root = await mkFixture({
+      'src/Hero.tsx': `export function Hero() { return <HeroSection title="Keep me" />; }`,
+      '.agentifyignore': '# this is a comment\n\n# another comment\n',
+    });
+    try {
+      const files = await scanForAnnotations(root);
+      expect(files.length).toBeGreaterThan(0);
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('missing .agentifyignore does not affect scan', async () => {
+    const root = await mkFixture({
+      'src/Hero.tsx': `export function Hero() { return <HeroSection title="Welcome" />; }`,
+    });
+    try {
+      const files = await scanForAnnotations(root);
+      expect(files.length).toBeGreaterThan(0);
+    } finally {
+      await cleanUp(root);
+    }
+  });
 });
 
 describe('renderAnnotationGuide', () => {

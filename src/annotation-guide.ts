@@ -33,7 +33,18 @@ const CONTENT_PROPS = new Set([
   'text', 'label', 'heading', 'caption', 'summary',
 ]);
 
+async function readAgentifyIgnore(projectRoot: string): Promise<string[]> {
+  try {
+    const raw = await fs.readFile(path.join(projectRoot, '.agentifyignore'), 'utf-8');
+    return raw.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  } catch {
+    return [];
+  }
+}
+
 export async function scanForAnnotations(projectRoot: string): Promise<FileAnnotations[]> {
+  const userIgnore = await readAgentifyIgnore(projectRoot);
+
   const files = await fg('**/*.{tsx,ts,jsx,js}', {
     cwd: projectRoot,
     absolute: true,
@@ -43,6 +54,7 @@ export async function scanForAnnotations(projectRoot: string): Promise<FileAnnot
       '**/dist/**',
       '**/*.test.*',
       '**/*.spec.*',
+      ...userIgnore,
     ],
   });
 
@@ -139,6 +151,10 @@ export function renderAnnotationGuide(files: FileAnnotations[]): string {
     '> "Follow this guide and add `<AIContent>` from `@pkg/react` to each location listed.',
     '> Import it at the top of each file. `<AIContent>` renders as a React Fragment —',
     '> no DOM wrapper, no layout change. After annotating, re-run `npx agentify`."',
+    '',
+    '> **Note:** this file is regenerated on every `npx agentify` run — edits are ephemeral.',
+    '> To permanently exclude files, add glob patterns to `.agentifyignore` in your project root',
+    '> (one pattern per line, `#` for comments, standard glob syntax).',
     '',
     '---',
     '',
