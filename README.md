@@ -204,6 +204,38 @@ agentify extracts text from JSX using a set of heuristics:
 
 ---
 
+## AI annotation guide
+
+Every run writes `ai-annotation-guide.md` to your project root. It scans all
+source files (not just route files) for components and string props that would
+benefit from `<AIContent>` wrapping, so their content can be extracted by
+agentify in future runs.
+
+The file is designed to be handed to an AI coding assistant. Open it for the
+exact install command and prompt to use once `@pkg/react` is published.
+
+> **Note:** `ai-annotation-guide.md` is regenerated on every run — edits are
+> ephemeral. Use `.agentifyignore` to permanently exclude files.
+
+### `.agentifyignore`
+
+Create `.agentifyignore` in your project root to exclude files from the
+annotation scan. One glob pattern per line, `#` for comments:
+
+```
+# .agentifyignore
+components/ui/primitives/**
+components/icons/**
+lib/utils
+```
+
+Bare paths without glob characters (`lib/utils`, `components/icons/`) are
+automatically expanded to `lib/utils/**` and `components/icons/**`.
+The scan always excludes `node_modules`, `.next`, `dist`, and test files
+regardless of `.agentifyignore`.
+
+---
+
 ## Known limitations
 
 **Content inside custom components is not extracted.** agentify reads each route file directly — it does not follow import chains into the components the page renders. A page like this produces an empty `.md` file:
@@ -230,7 +262,7 @@ export default async function Page() {
 git clone https://github.com/ggange/agentify
 cd agentify
 npm install
-npm test       # 64 tests, ~500ms
+npm test       # 70 tests, ~500ms
 npm run build  # outputs dist/cli.js
 ```
 
