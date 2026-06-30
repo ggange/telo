@@ -1,7 +1,9 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { parse } from '@babel/parser';
-import traverse from '@babel/traverse';
+import _traverse from '@babel/traverse';
+// @babel/traverse is CommonJS; in ESM bundles the function is on .default
+const traverse = ((_traverse as any).default ?? _traverse) as typeof _traverse;
 import * as t from '@babel/types';
 import fg from 'fast-glob';
 
