@@ -103,6 +103,7 @@ npx agentify [options]
 |---|---|---|
 | `--out <dir>` | `public` | Output directory |
 | `--skip-dynamic` | off | Omit `<!-- dynamic content -->` comments |
+| `--skip-components <list>` | — | Comma-separated JSX element names to exclude (e.g. `NavBar,Sidebar`) |
 | `--help` | | Show help |
 
 ### In your build pipeline
@@ -203,13 +204,33 @@ agentify extracts text from JSX using a set of heuristics:
 
 ---
 
+## Known limitations
+
+**Content inside custom components is not extracted.** agentify reads each route file directly — it does not follow import chains into the components the page renders. A page like this produces an empty `.md` file:
+
+```tsx
+// app/page.tsx — agentify sees <Pricing /> but can't read inside Pricing.tsx
+export default async function Page() {
+  const products = await getProducts();
+  return <Pricing products={products} />;
+}
+```
+
+**The fix:** run `npx agentify` once to generate `ai-annotation-guide.md`, then follow its instructions to wrap key content inside your components with `<AIContent>` from `@pkg/react` (coming soon). Once annotated, agentify will pick up that content on the next run.
+
+**Pages that only call `redirect()` produce empty output.** This is expected — there is no content to extract.
+
+**Stale `llms.txt`.** The generated files are a snapshot of your source at the time you run agentify. If you update your pages, re-run agentify (or automate it in CI) to keep them fresh.
+
+---
+
 ## Contributing
 
 ```bash
-git clone https://github.com/your-org/agentify
+git clone https://github.com/ggange/agentify
 cd agentify
 npm install
-npm test       # 34 tests, ~500ms
+npm test       # 64 tests, ~500ms
 npm run build  # outputs dist/cli.js
 ```
 
