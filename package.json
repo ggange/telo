@@ -1,10 +1,10 @@
 {
-  "name": "@ggange/telo",
+  "name": "telogen",
   "version": "0.1.0",
   "description": "Generate AI-readable markdown from your React source. No proxy, no runtime cost.",
   "type": "module",
   "bin": {
-    "telo": "dist/cli.js"
+    "telogen": "dist/cli.js"
   },
   "files": [
     "dist"
@@ -35,10 +35,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ggange/telo.git"
+    "url": "git+https://github.com/ggange/telogen.git"
   },
-  "homepage": "https://github.com/ggange/telo#readme",
-  "bugs": "https://github.com/ggange/telo/issues",
+  "homepage": "https://github.com/ggange/telogen#readme",
+  "bugs": "https://github.com/ggange/telogen/issues",
   "keywords": [
     "llm",
     "ai",

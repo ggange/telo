@@ -6,7 +6,7 @@ import { scanForAnnotations, renderAnnotationGuide } from '../annotation-guide.j
 import type { FileAnnotations } from '../annotation-guide.js';
 
 async function mkFixture(structure: Record<string, string>): Promise<string> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'telo-ann-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'telogen-ann-'));
   for (const [rel, content] of Object.entries(structure)) {
     const full = path.join(root, rel);
     await fs.mkdir(path.dirname(full), { recursive: true });
@@ -24,7 +24,7 @@ describe('scanForAnnotations', () => {
     const root = await mkFixture({
       'src/Hero.tsx': `
         export function Hero() {
-          return <HeroSection title="Welcome to telo" />;
+          return <HeroSection title="Welcome to telogen" />;
         }
       `,
     });
@@ -131,11 +131,11 @@ describe('scanForAnnotations', () => {
     }
   });
 
-  test('.teloignore excludes matching files (glob pattern)', async () => {
+  test('.telogenignore excludes matching files (glob pattern)', async () => {
     const root = await mkFixture({
       'src/Hero.tsx': `export function Hero() { return <HeroSection title="Keep me" />; }`,
       'src/ignored/Nav.tsx': `export function Nav() { return <NavSection title="Exclude me" />; }`,
-      '.teloignore': 'src/ignored/**',
+      '.telogenignore': 'src/ignored/**',
     });
     try {
       const files = await scanForAnnotations(root);
@@ -147,10 +147,10 @@ describe('scanForAnnotations', () => {
     }
   });
 
-  test('.teloignore strips comments and blank lines', async () => {
+  test('.telogenignore strips comments and blank lines', async () => {
     const root = await mkFixture({
       'src/Hero.tsx': `export function Hero() { return <HeroSection title="Keep me" />; }`,
-      '.teloignore': '# this is a comment\n\n# another comment\n',
+      '.telogenignore': '# this is a comment\n\n# another comment\n',
     });
     try {
       const files = await scanForAnnotations(root);
@@ -160,11 +160,11 @@ describe('scanForAnnotations', () => {
     }
   });
 
-  test('.teloignore bare directory path is normalized to glob', async () => {
+  test('.telogenignore bare directory path is normalized to glob', async () => {
     const root = await mkFixture({
       'src/Hero.tsx': `export function Hero() { return <HeroSection title="Keep me" />; }`,
       'src/ignored/Nav.tsx': `export function Nav() { return <NavSection title="Exclude me" />; }`,
-      '.teloignore': 'src/ignored',
+      '.telogenignore': 'src/ignored',
     });
     try {
       const files = await scanForAnnotations(root);
@@ -176,11 +176,11 @@ describe('scanForAnnotations', () => {
     }
   });
 
-  test('.teloignore trailing-slash directory is normalized to glob', async () => {
+  test('.telogenignore trailing-slash directory is normalized to glob', async () => {
     const root = await mkFixture({
       'src/Hero.tsx': `export function Hero() { return <HeroSection title="Keep me" />; }`,
       'src/ignored/Nav.tsx': `export function Nav() { return <NavSection title="Exclude me" />; }`,
-      '.teloignore': 'src/ignored/',
+      '.telogenignore': 'src/ignored/',
     });
     try {
       const files = await scanForAnnotations(root);
@@ -190,7 +190,7 @@ describe('scanForAnnotations', () => {
     }
   });
 
-  test('missing .teloignore does not affect scan', async () => {
+  test('missing .telogenignore does not affect scan', async () => {
     const root = await mkFixture({
       'src/Hero.tsx': `export function Hero() { return <HeroSection title="Welcome" />; }`,
     });
