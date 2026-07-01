@@ -31,9 +31,9 @@ export async function run(projectRoot: string, argv: string[]): Promise<void> {
 
   if (flags.help) {
     console.log(`
-telo — generate AI-readable markdown from your Next.js source
+telogen — generate AI-readable markdown from your Next.js source
 
-Usage: npx @ggange/telo [options]
+Usage: npx telogen [options]
 
 Options:
   --out <dir>              Output directory (default: public)
@@ -52,7 +52,7 @@ Options:
 
   if (skipped.length > 0) {
     for (const f of skipped) {
-      console.warn(`telo: skipped dynamic route: ${path.relative(projectRoot, f)}`);
+      console.warn(`telogen: skipped dynamic route: ${path.relative(projectRoot, f)}`);
     }
   }
 
@@ -97,14 +97,14 @@ Options:
   await fs.writeFile(path.join(outDir, 'llms.txt'), llmsTxt, 'utf-8');
 
   console.log(
-    `telo: generated ${results.length} pages + llms.txt → ${path.relative(projectRoot, outDir)}/`
+    `telogen: generated ${results.length} pages + llms.txt → ${path.relative(projectRoot, outDir)}/`
   );
 
   // Write ai-annotation-guide.md
   const annotations = await scanForAnnotations(projectRoot);
   const guide = renderAnnotationGuide(annotations);
   await fs.writeFile(path.join(projectRoot, 'ai-annotation-guide.md'), guide, 'utf-8');
-  console.log('telo: annotation guide → ai-annotation-guide.md');
+  console.log('telogen: annotation guide → ai-annotation-guide.md');
 }
 
 function renderMarkdown(
@@ -137,7 +137,7 @@ function renderMarkdown(
 // Auto-execute only when run as the main script
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   run(process.cwd(), process.argv.slice(2)).catch((err) => {
-    console.error('telo:', err.message);
+    console.error('telogen:', err.message);
     process.exit(1);
   });
 }

@@ -1,9 +1,9 @@
-# telo
+# telogen
 
 Generate AI-readable markdown from your Next.js source — no proxy, no runtime cost.
 
 ```
-npx @ggange/telo
+npx telogen
 ```
 
 Produces a `page.md` file alongside every static route and an `llms.txt` index that AI agents can follow, all derived directly from your source code at build time.
@@ -14,11 +14,11 @@ Produces a `page.md` file alongside every static route and an `llms.txt` index t
 
 Modern websites are built for human eyes: rendered HTML, client-side hydration, CSS-driven layouts. AI agents parsing those pages discard most of the markup and often miss content entirely. Existing solutions (reverse proxies, middleware) add latency and require deployed infrastructure.
 
-**telo** works offline from your source tree. Because it reads the React AST — not the rendered output — it works even for CSR apps that are invisible to crawlers, requires no runtime dependency, and can run in CI next to your linter.
+**telogen** works offline from your source tree. Because it reads the React AST — not the rendered output — it works even for CSR apps that are invisible to crawlers, requires no runtime dependency, and can run in CI next to your linter.
 
 ### How it differs from Cloudflare's approach
 
-| | telo | Cloudflare AI Gateway / Workers |
+| | telogen | Cloudflare AI Gateway / Workers |
 |---|---|---|
 | Input | React source (AST) | Live HTTP response |
 | When it runs | Build time / CI | Request time |
@@ -39,7 +39,7 @@ app/
   pricing/page.tsx
 ```
 
-Running `npx @ggange/telo` writes:
+Running `npx telogen` writes:
 
 ```
 public/
@@ -80,13 +80,13 @@ AI agents follow the two-hop pattern: fetch `/llms.txt` → follow links to per-
 
 ```bash
 # Run once (no install needed)
-npx @ggange/telo
+npx telogen
 
 # Or install globally
-npm install -g @ggange/telo
+npm install -g telogen
 
 # Or add to your project
-npm install --save-dev @ggange/telo
+npm install --save-dev telogen
 ```
 
 Requires Node.js ≥ 18.
@@ -96,7 +96,7 @@ Requires Node.js ≥ 18.
 ## Usage
 
 ```bash
-npx @ggange/telo [options]
+npx telogen [options]
 ```
 
 | Option | Default | Description |
@@ -111,7 +111,7 @@ npx @ggange/telo [options]
 ```json
 {
   "scripts": {
-    "build": "next build && npx @ggange/telo"
+    "build": "next build && npx telogen"
   }
 }
 ```
@@ -129,13 +129,13 @@ Or in CI alongside your existing steps — it reads source files, not build outp
 | Remix | Planned |
 | Astro | Planned |
 
-telo auto-detects which router your project uses. If both `app/` and `pages/` exist it prefers App Router.
+telogen auto-detects which router your project uses. If both `app/` and `pages/` exist it prefers App Router.
 
 ---
 
 ## Dynamic content
 
-Pages are flagged as dynamic when telo detects:
+Pages are flagged as dynamic when telogen detects:
 
 1. **`async` default export** — the primary App Router signal (`async function Page()`)
 2. **Unknown `use*` hooks** — data-fetching hooks like `useSWR`, `useQuery` (safe hooks such as `useState`, `useEffect`, `useMemo` are not flagged)
@@ -151,7 +151,7 @@ Pass `--skip-dynamic` to omit these comments entirely.
 
 ### `generateMetadata()`
 
-When telo finds `export async function generateMetadata()`, it cannot extract a static description. The `llms.txt` entry reads:
+When telogen finds `export async function generateMetadata()`, it cannot extract a static description. The `llms.txt` entry reads:
 
 ```
 - [Products](/products.md): dynamic — see generateMetadata()
@@ -163,10 +163,10 @@ This signals to agents that a description exists at runtime, not that the page i
 
 ## Dynamic routes
 
-Routes with path parameters (`[slug]`, `[id]`, `[...catchAll]`) are skipped — telo cannot enumerate the parameter values statically. A warning is printed to stderr for each skipped file:
+Routes with path parameters (`[slug]`, `[id]`, `[...catchAll]`) are skipped — telogen cannot enumerate the parameter values statically. A warning is printed to stderr for each skipped file:
 
 ```
-telo: skipped dynamic route: app/blog/[slug]/page.tsx
+telogen: skipped dynamic route: app/blog/[slug]/page.tsx
 ```
 
 Parallel routes (`@slot`) and API routes (`pages/api/`) are also skipped.
@@ -192,7 +192,7 @@ Alternatively, use a different `--out` directory and configure your server to se
 
 ## Content extraction
 
-telo extracts text from JSX using a set of heuristics:
+telogen extracts text from JSX using a set of heuristics:
 
 - **Heading elements** (`h1`–`h6`) → markdown headings
 - **List items** (`li`) → markdown list items
@@ -209,21 +209,21 @@ telo extracts text from JSX using a set of heuristics:
 Every run writes `ai-annotation-guide.md` to your project root. It scans all
 source files (not just route files) for components and string props that would
 benefit from `<AIContent>` wrapping, so their content can be extracted by
-telo in future runs.
+telogen in future runs.
 
 The file is designed to be handed to an AI coding assistant. Open it for the
 exact install command and prompt to use once `@pkg/react` is published.
 
 > **Note:** `ai-annotation-guide.md` is regenerated on every run — edits are
-> ephemeral. Use `.teloignore` to permanently exclude files.
+> ephemeral. Use `.telogenignore` to permanently exclude files.
 
-### `.teloignore`
+### `.telogenignore`
 
-Create `.teloignore` in your project root to exclude files from the
+Create `.telogenignore` in your project root to exclude files from the
 annotation scan. One glob pattern per line, `#` for comments:
 
 ```
-# .teloignore
+# .telogenignore
 components/ui/primitives/**
 components/icons/**
 lib/utils
@@ -232,41 +232,41 @@ lib/utils
 Bare paths without glob characters (`lib/utils`, `components/icons/`) are
 automatically expanded to `lib/utils/**` and `components/icons/**`.
 The scan always excludes `node_modules`, `.next`, `dist`, and test files
-regardless of `.teloignore`.
+regardless of `.telogenignore`.
 
 ---
 
 ## Known limitations
 
-**Content inside custom components is not extracted.** telo reads each route file directly — it does not follow import chains into the components the page renders. A page like this produces an empty `.md` file:
+**Content inside custom components is not extracted.** telogen reads each route file directly — it does not follow import chains into the components the page renders. A page like this produces an empty `.md` file:
 
 ```tsx
-// app/page.tsx — telo sees <Pricing /> but can't read inside Pricing.tsx
+// app/page.tsx — telogen sees <Pricing /> but can't read inside Pricing.tsx
 export default async function Page() {
   const products = await getProducts();
   return <Pricing products={products} />;
 }
 ```
 
-**The fix:** run `npx @ggange/telo` once to generate `ai-annotation-guide.md`, then follow its instructions to wrap key content inside your components with `<AIContent>` from `@pkg/react` (coming soon). Once annotated, telo will pick up that content on the next run.
+**The fix:** run `npx telogen` once to generate `ai-annotation-guide.md`, then follow its instructions to wrap key content inside your components with `<AIContent>` from `@pkg/react` (coming soon). Once annotated, telogen will pick up that content on the next run.
 
 **Pages that only call `redirect()` produce empty output.** This is expected — there is no content to extract.
 
-**Stale `llms.txt`.** The generated files are a snapshot of your source at the time you run telo. If you update your pages, re-run telo (or automate it in CI) to keep them fresh.
+**Stale `llms.txt`.** The generated files are a snapshot of your source at the time you run telogen. If you update your pages, re-run telogen (or automate it in CI) to keep them fresh.
 
 ---
 
 ## Contributing
 
 ```bash
-git clone https://github.com/ggange/telo
-cd telo
+git clone https://github.com/ggange/telogen
+cd telogen
 npm install
 npm test       # 70 tests, ~500ms
 npm run build  # outputs dist/cli.js
 ```
 
-telo is built with `@babel/parser` + `@babel/traverse` for AST analysis and `tsup` for bundling. The CLI produces a single self-contained `dist/cli.js` with a Node shebang, suitable for `npx`.
+telogen is built with `@babel/parser` + `@babel/traverse` for AST analysis and `tsup` for bundling. The CLI produces a single self-contained `dist/cli.js` with a Node shebang, suitable for `npx`.
 
 ---
 

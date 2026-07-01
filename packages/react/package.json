@@ -1,21 +1,21 @@
 {
   "name": "@pkg/react",
   "version": "0.0.1",
-  "description": "AIContent component for telo — namespace placeholder. Full implementation coming soon.",
+  "description": "AIContent component for telogen — namespace placeholder. Full implementation coming soon.",
   "type": "module",
   "main": "index.js",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ggange/telo.git",
+    "url": "https://github.com/ggange/telogen.git",
     "directory": "packages/react"
   },
-  "homepage": "https://github.com/ggange/telo#readme",
-  "bugs": "https://github.com/ggange/telo/issues",
+  "homepage": "https://github.com/ggange/telogen#readme",
+  "bugs": "https://github.com/ggange/telogen/issues",
   "keywords": [
     "ai",
     "agents",
     "react",
-    "telo"
+    "telogen"
   ]
 }
